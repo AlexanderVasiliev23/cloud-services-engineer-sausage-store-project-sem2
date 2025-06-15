@@ -112,5 +112,5 @@ jobs:
             --namespace $SAUSAGE_STORE_NAMESPACE \
             --version 1.0.0
         env:
-          KUBECONFIG: ${{ secrets.KUBE_CONFIG }}
+          KUBECONFIG: $KUBE_CONFIG
 
