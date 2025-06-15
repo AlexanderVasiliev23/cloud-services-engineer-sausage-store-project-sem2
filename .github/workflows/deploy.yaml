@@ -64,10 +64,34 @@ jobs:
   #          push: true
   #          tags: alexanderx23/sausage-backend-report:latest
   # Упаковываем helm-чарт и пушим его в Nexus
-  add_helm_chart_to_nexus:
-    name: Add Helm Chart To Nexus
+  #  add_helm_chart_to_nexus:
+  #    name: Add Helm Chart To Nexus
+  #    runs-on: ubuntu-latest
+  #    #    needs: build_and_push_to_docker_hub
+  #
+  #    steps:
+  #      - name: Получить исходный код репозитория
+  #        uses: actions/checkout@v3
+  #      - name: Установка helm
+  #        uses: azure/setup-helm@v3
+  #        with:
+  #          version: v3.12.0
+  #      - name: Упаковка Helm чарта
+  #        run: |
+  #          helm dependency update ./sausage-store-chart/
+  #          helm package ./sausage-store-chart/ -d ./packaged/
+  #      - name: Отправка упакованного чарта в Nexus
+  #        run: |
+  #          CHART_FILE=$(ls ./packaged/*.tgz)
+  #          curl -u "$NEXUS_HELM_REPO_USER:$NEXUS_HELM_REPO_PASSWORD" \
+  #            --upload-file "$CHART_FILE" \
+  #            "$NEXUS_HELM_REPO/"
+
+  # Деплоим приложения в кластер Kubernetes с помощью helm-чарт
+  deploy_helm_chart_to_kubernetes:
+    name: Deploy Helm Chart To Kubernetes
     runs-on: ubuntu-latest
-    #    needs: build_and_push_to_docker_hub
+    #        needs: add_helm_chart_to_nexus
 
     steps:
       - name: Получить исходный код репозитория
@@ -76,22 +100,17 @@ jobs:
         uses: azure/setup-helm@v3
         with:
           version: v3.12.0
-      - name: Упаковка Helm чарта
+      - name: Добавить Nexus репозиторий в helm
         run: |
-          helm dependency update ./sausage-store-chart/
-          helm package ./sausage-store-chart/ -d ./packaged/
-      - name: Отправка упакованного чарта в Nexus
+          helm repo add sausage-store-helm-nexus-repo $NEXUS_HELM_REPO/ \
+            --username $NEXUS_HELM_REPO_USER \
+            --password $NEXUS_HELM_REPO_PASSWORD
+          helm repo update
+      - name: Развернуть helm чарт в Kubernetes
         run: |
-          CHART_FILE=$(ls ./packaged/*.tgz)
-          curl -u "$NEXUS_HELM_REPO_USER:$NEXUS_HELM_REPO_PASSWORD" \
-            --upload-file "$CHART_FILE" \
-            "$NEXUS_HELM_REPO/repository/alexandervasiliev23-sausage-store-helm/"
+          helm upgrade --install sausage-store sausage-store-helm-nexus-repo/sausage-store-chart \
+            --namespace $SAUSAGE_STORE_NAMESPACE \
+            --version 1.0.0
+        env:
+          KUBECONFIG: ${{ secrets.KUBE_CONFIG }}
 
-    # Деплоим приложения в кластер Kubernetes с помощью helm-чарт
-    #  deploy_helm_chart_to_kubernetes:
-    #    name: Deploy Helm Chart To Kubernetes
-    #    runs-on: ubuntu-latest
-    #    needs: add_helm_chart_to_nexus
-    #
-    #    steps:
-    #### Опишите необходимые шаги
