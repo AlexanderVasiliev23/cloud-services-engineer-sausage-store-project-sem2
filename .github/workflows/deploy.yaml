@@ -94,8 +94,6 @@ jobs:
     #        needs: add_helm_chart_to_nexus
 
     steps:
-      - name: Получить исходный код репозитория
-        uses: actions/checkout@v3
       - name: Установка helm
         uses: azure/setup-helm@v3
         with:
