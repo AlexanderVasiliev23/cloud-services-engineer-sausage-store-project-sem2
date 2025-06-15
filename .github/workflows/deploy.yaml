@@ -73,7 +73,7 @@ jobs:
       - name: Получить исходный код репозитория
         uses: actions/checkout@v3
       - name: Установка helm
-        uses: helm/helm-action@v2.4.0
+        uses: azure/setup-helm@v3
         with:
           version: v3.12.0
       - name: Упаковка Helm чарта
