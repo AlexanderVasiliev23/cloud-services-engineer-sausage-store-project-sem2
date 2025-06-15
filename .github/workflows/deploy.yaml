@@ -108,6 +108,10 @@ jobs:
           helm repo update
       - name: Развернуть helm чарт в Kubernetes
         run: |
+          mkdir -p ~/.kube
+          echo "$KUBE_CONFIG" > ~/.kube/config
+          chmod 600 ~/.kube/config
+          
           helm upgrade --install sausage-store sausage-store-helm-nexus-repo/sausage-store-chart \
             --namespace $SAUSAGE_STORE_NAMESPACE \
             --version 1.0.0
