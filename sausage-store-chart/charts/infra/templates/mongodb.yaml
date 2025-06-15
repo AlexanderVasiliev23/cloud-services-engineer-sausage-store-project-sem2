@@ -16,30 +16,26 @@ spec:
         app: mongodb
     spec:
       containers:
-      - name: mongodb
-        image: mongo:7.0
-        envFrom:
-          - configMapRef:
-              name: mongodb-conf
-        ports:
-        - containerPort: {{ .Values.mongodb.containerPort }}
+        - name: mongodb
+          image: mongo:7.0
+          envFrom:
+            - configMapRef:
+                name: mongodb-conf
+          ports:
+            - containerPort: {{ .Values.mongodb.containerPort }}
+          resources:
+{{ toYaml .Values.mongodb.resources | indent 12 }}
+          volumeMounts:
+            - name: mongodb-data
+              mountPath: /data/db
+  volumeClaimTemplates:
+    - metadata:
+        name: mongodb-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "50m"
-          limits:
-            memory: "256Mi"
-        volumeMounts:
-        - name: mongodb-data
-          mountPath: /data/db
-  volumeClaimTemplates:
-  - metadata:
-      name: mongodb-data
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi
+            storage: 1Gi
 ---
 apiVersion: v1
 kind: Service
@@ -49,8 +45,8 @@ metadata:
     app: mongodb
 spec:
   ports:
-  - port: {{ .Values.mongodb.containerPort }}
-    targetPort: {{ .Values.mongodb.containerPort }}
+    - port: {{ .Values.mongodb.containerPort }}
+      targetPort: {{ .Values.mongodb.containerPort }}
   selector:
     app: mongodb
   clusterIP: None
@@ -60,5 +56,54 @@ kind: ConfigMap
 metadata:
   name: mongodb-conf
 data:
-  MONGO_INITDB_ROOT_USERNAME: {{ .Values.mongodb.env.MONGO_INITDB_ROOT_USERNAME }}
-  MONGO_INITDB_ROOT_PASSWORD: {{ .Values.mongodb.env.MONGO_INITDB_ROOT_PASSWORD }}
+  MONGO_INITDB_ROOT_USERNAME: "{{ .Values.mongodb.env.MONGO_INITDB_ROOT_USERNAME }}"
+  MONGO_INITDB_ROOT_PASSWORD: "{{ .Values.mongodb.env.MONGO_INITDB_ROOT_PASSWORD }}"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongodb-init
+  annotations:
+    helm.sh/hook: post-install
+    helm.sh/hook-weight: "5"
+    helm.sh/hook-delete-policy: hook-succeeded
+spec:
+  template:
+    spec:
+      containers:
+        - name: mongodb-init
+          image: mongo:7.0
+          envFrom:
+            - configMapRef:
+                name: mongodb-conf
+          resources:
+{{ toYaml .Values.mongodb.resources | indent 12 }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - |
+              until mongosh --host mongodb \
+                --username $MONGO_INITDB_ROOT_USERNAME \
+                --password $MONGO_INITDB_ROOT_PASSWORD \
+                --authenticationDatabase admin \
+                --eval "db.adminCommand('ping')"; do
+                echo "Waiting for MongoDB to be ready...";
+                sleep 2;
+              done
+
+              mongosh --host mongodb \
+                --username $MONGO_INITDB_ROOT_USERNAME \
+                --password $MONGO_INITDB_ROOT_PASSWORD \
+                --authenticationDatabase admin \
+                --eval "
+                if (!db.getSiblingDB('sausage-store').getUser('reports')) {
+                  db.getSiblingDB('sausage-store').createUser({
+                    user: 'reports',
+                    pwd: 'reportspassword',
+                    roles: [ { role: 'readWrite', db: 'sausage-store' } ]
+                  });
+                  console.log('User created successfully');
+                } else {
+                  console.log('User already exists, skipping creation');
+                }"
+      restartPolicy: OnFailure
