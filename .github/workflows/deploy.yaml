@@ -67,7 +67,7 @@ jobs:
   add_helm_chart_to_nexus:
     name: Add Helm Chart To Nexus
     runs-on: ubuntu-latest
-#    needs: build_and_push_to_docker_hub
+    #    needs: build_and_push_to_docker_hub
 
     steps:
       - name: Получить исходный код репозитория
@@ -75,7 +75,7 @@ jobs:
       - name: Установка helm
         uses: helm/helm-action@v2.4.0
         with:
-          version: v3.14.0
+          version: v3.12.0
       - name: Упаковка Helm чарта
         run: |
           helm dependency update ./sausage-store-chart/
